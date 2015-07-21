@@ -1,0 +1,33 @@
+public with sharing class AwsGetBucket extends AwsSignature {
+    private String bucketName;
+    private Datetime requestTimeStamp;
+    
+    public AwsGetBucket(String accessIdKey, String secretAccessKey, String region, String bucketName, Datetime requestTimeStamp) {
+        this.accessIdKey = accessIdKey;
+    	this.secretAccessKey = secretAccessKey;
+    	this.region = region;
+        this.requestTimeStamp = requestTimeStamp;
+    	this.todayYYYYMMDD = requestTimeStamp.formatGmt('yyyyMMdd');
+        this.todayISO8601 = todayYYYYMMDD + 'T' + requestTimeStamp.formatGmt('HH') + requestTimeStamp.formatGmt('mm') + requestTimeStamp.formatGmt('ss') + 'Z';        this.bucketName = bucketName;
+    }
+    
+    public override String getCanonicalRequest() {
+        String canonicalRequest = 'GET\n' +
+            '/\n\n' +
+            'host:' + bucketName + '.s3.amazonaws.com\n' +
+            'x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\n' +
+            'x-amz-date:' + todayISO8601 + '\n\n' +
+            'host;x-amz-content-sha256;x-amz-date\n' +
+            'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
+        return canonicalRequest;
+    }
+    
+    public String getAuthorizationHeader() {
+        String signature = getSignature(); 
+        String authorizationHeader = 'AWS4-HMAC-SHA256 Credential=' + accessIdKey + '/' + todayYYYYMMDD + '/' + region + '/s3/aws4_request,' +
+									'SignedHeaders=host;x-amz-content-sha256;x-amz-date,' +
+									'Signature=' + signature;
+        
+        return authorizationHeader;
+    }
+}

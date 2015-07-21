@@ -1,0 +1,7 @@
+public with sharing class AWSAccount {
+  public String accessKeyId;
+  public String secretAccessKey;
+  public String region;
+  public String bucket;
+  public String objectKey;
+}

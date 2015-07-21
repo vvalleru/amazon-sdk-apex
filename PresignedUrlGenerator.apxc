@@ -1,0 +1,63 @@
+public with sharing class PresignedUrlGenerator {
+  private AWSAccount cloudAccount;
+  private String expirationInSeconds;
+  private String todayYYYYMMDD;
+  private String todayISO8601;
+
+  public PresignedUrlGenerator(AWSAccount cloudAccount, String expirationInSeconds){
+    this.cloudAccount = cloudAccount;
+    this.expirationInSeconds = expirationInSeconds;
+    todayYYYYMMDD = Datetime.now().format('yyyyMMdd');
+    todayISO8601 = todayYYYYMMDD + 'T000000Z';
+  }
+  
+  public String generatePreSignedURL(){
+    String signature = generateSignature();
+    String url = 'https://' + cloudAccount.bucket + '.s3.amazonaws.com/' + 
+                  cloudAccount.objectKey + '?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=' + cloudAccount.accessKeyId + 
+                  '%2F' + todayYYYYMMDD + '%2F' + cloudAccount.region + '%2Fs3%2Faws4_request&X-Amz-Date=' + todayISO8601 + 
+                  '&X-Amz-Expires=' + expirationInSeconds + '&X-Amz-SignedHeaders=host&X-Amz-Signature=' + signature;
+    return url;
+  }
+
+  private String generateSignature(){
+    Blob dateKey = Crypto.generateMac('HmacSHA256', Blob.valueOf(todayYYYYMMDD), Blob.valueOf('AWS4' + cloudAccount.secretAccessKey));
+    Blob dateRegionKey = Crypto.generateMac('HmacSHA256', Blob.valueOf(cloudAccount.region), dateKey);
+    Blob dateRegionServiceKey = Crypto.generateMac('HmacSHA256', Blob.valueOf('s3'), dateRegionKey);
+    Blob signingKey = Crypto.generateMac('HmacSHA256', Blob.valueOf('aws4_request'), dateRegionServiceKey);
+    Blob stringToSign = Blob.valueOf(generateStringToSign());
+    Blob signature = Crypto.generateMac('HmacSHA256', stringToSign, signingKey);
+
+    return EncodingUtil.convertToHex(signature);
+  }
+
+  private String generateStringToSign(){
+    Blob mac = Crypto.generateDigest('SHA-256', Blob.valueOf(generateCanonicalRequest()));
+    String hexMac = EncodingUtil.convertToHex(mac);
+    String stringToSign = 'AWS4-HMAC-SHA256\n' +
+      + todayISO8601 + '\n' + todayYYYYMMDD + 
+      '/' + cloudAccount.region + '/s3/aws4_request\n' + hexMac;
+    
+    return stringToSign;
+  }
+
+  private String generateCanonicalRequest(){
+    String canonicalRequest = 'GET\n' + 
+                              generateCanonicalURI() + '\n' +
+                              generateCanonicalQueryString() + '\n' +
+                              'host:' + cloudAccount.bucket + '.s3.amazonaws.com\n\nhost' + '\n' + 
+                              'UNSIGNED-PAYLOAD';
+    return canonicalRequest;
+  }
+
+  private String generateCanonicalURI(){
+    return '/' + cloudAccount.objectKey;
+  }
+
+  private String generateCanonicalQueryString(){
+    return 'X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=' + cloudAccount.accessKeyId 
+            + '%2F' + todayYYYYMMDD + '%2F' + 
+            cloudAccount.region + '%2Fs3%2Faws4_request&X-Amz-Date=' + todayYYYYMMDD + 'T000000Z' + 
+            '&X-Amz-Expires=' + expirationInSeconds + '&X-Amz-SignedHeaders=host';
+  }
+}

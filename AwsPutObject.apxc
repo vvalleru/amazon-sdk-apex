@@ -1,0 +1,39 @@
+public with sharing class AwsPutObject extends AwsSignature {
+    private String objKeyPath;
+    private String bucketName;
+    private Datetime requestTimeStamp;
+    
+    public AwsPutObject(String accessIdKey, String secretAccessKey, String region, String objKeyPath, String bucketName, Datetime requestTimeStamp) {
+        this.accessIdKey = accessIdKey;
+    	this.secretAccessKey = secretAccessKey;
+    	this.region = region;
+        this.requestTimeStamp = requestTimeStamp;
+    	this.todayYYYYMMDD = requestTimeStamp.formatGmt('yyyyMMdd');
+        this.todayISO8601 = todayYYYYMMDD + 'T' + requestTimeStamp.formatGmt('HH') + requestTimeStamp.formatGmt('mm') + requestTimeStamp.formatGmt('ss') + 'Z';
+        this.bucketName = bucketName;
+        this.objKeyPath = objKeyPath;
+    }
+    
+    public override String getCanonicalRequest() {
+        String canonicalRequest = 'PUT' + '\n' +
+            '/' + bucketName + objKeyPath + '\n' +
+            '\n' +
+            'content-length:857' + '\n' +
+            'host:s3.amazonaws.com' + '\n' +
+            'x-amz-content-sha256:8a816cbbd9f0a0ebf8c5196c255b64c7cddec8ea12a46c60abeb3b2eda193887' + '\n' +
+            'x-amz-date:' + todayISO8601 + '\n' +
+            'x-amz-storage-class:STANDARD' + '\n' +
+            '\n' +
+            'content-length;host;x-amz-content-sha256;x-amz-date;x-amz-storage-class' + '\n' +
+            '8a816cbbd9f0a0ebf8c5196c255b64c7cddec8ea12a46c60abeb3b2eda193887';
+            
+        return canonicalRequest;
+    }
+    
+    public String getAuthorizationHeader() {
+        String signature = getSignature(); 
+        String authorizationHeader = 'AWS4-HMAC-SHA256 Credential=' + accessIdKey + '/' + todayYYYYMMDD + '/' + region + '/s3/aws4_request,' + 'SignedHeaders=content-length;host;x-amz-content-sha256;x-amz-date;x-amz-storage-class,' + 'Signature=' + signature;
+
+        return authorizationHeader;
+    }
+}

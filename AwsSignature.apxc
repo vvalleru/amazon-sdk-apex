@@ -1,0 +1,37 @@
+public abstract class AwsSignature {
+    protected String accessIdKey;
+    protected String secretAccessKey;
+    protected String region;
+    protected String todayYYYYMMDD;
+    protected String todayISO8601;
+    
+    public AwsSignature() {}
+
+    public abstract String getCanonicalRequest();
+    
+    public String getStringToSign() {
+        String canonicalRequest = getCanonicalRequest();
+        String stringToSign = 'AWS4-HMAC-SHA256' + '\n' +
+            todayISO8601 + '\n' +
+            todayYYYYMMDD + '/us-east-1/s3/aws4_request' + '\n' +
+            EncodingUtil.convertToHex(Crypto.generateDigest('SHA256', Blob.valueOf(getCanonicalRequest())));
+        return stringToSign;
+    }
+
+    private Blob getSigningKey() {
+        Blob dateKey = Crypto.generateMac('HmacSHA256', Blob.valueOf(todayYYYYMMDD), Blob.valueOf('AWS4' + secretAccessKey));
+        Blob dateRegionKey = Crypto.generateMac('HmacSHA256', Blob.valueOf(region), dateKey);
+        Blob dateRegionServiceKey = Crypto.generateMac('HmacSHA256', Blob.valueOf('s3'), dateRegionKey);
+        Blob signingKey = Crypto.generateMac('HmacSHA256', Blob.valueOf('aws4_request'), dateRegionServiceKey);
+        
+        return signingKey;
+    }
+        
+    public String getSignature() {
+        Blob signingKey = getSigningKey();
+        Blob stringToSign = Blob.valueOf(getStringToSign());
+        Blob signatureBlob = Crypto.generateMac('HmacSHA256', stringToSign, signingKey);
+        String signature = EncodingUtil.convertToHex(signatureBlob);
+        return signature;
+    }
+}
